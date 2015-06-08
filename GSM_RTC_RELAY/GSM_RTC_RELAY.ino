@@ -7,8 +7,8 @@
 //DEBUG //
 
 // Settings
-#define ON_HOUR_START 55
-#define ON_HOUR_STOP 05
+#define ON_HOUR_START 58
+#define ON_HOUR_STOP 8
 
 #define PIN_SIM900_RESET 6
 #define PIN_SIM900_RX 7
@@ -28,6 +28,7 @@ struct Time
 struct Settings
 {
   uint8_t minutesAroundSunUp;
+  uint8_t hourSunUp;
   uint8_t hourWhenRecordingStart;
   uint8_t hourWhenRecordingStop;
 };
@@ -51,16 +52,16 @@ String msg;
 void setup()
 {
 #ifdef DEBUG
-  Serial.begin(19200);
+    Serial.begin(19200);
 #endif
 
-  pinMode(PIN_SIM900_ON_OFF, OUTPUT); // Set the pin connected to Sim900 on/off pin as output
-  pinMode(PIN_COMPUTER_ON_OFF, OUTPUT); // Set the pin connected to on/off relay as output
+    pinMode(PIN_SIM900_ON_OFF, OUTPUT); // Set the pin connected to Sim900 on/off pin as output
+    pinMode(PIN_COMPUTER_ON_OFF, OUTPUT); // Set the pin connected to on/off relay as output
 
-  EEPROM.get(0, settings); // Load saved settings from EEPROM at address 0 (beginning of memory)
+    EEPROM.get(0, settings); // Load saved settings from EEPROM at address 0 (beginning of memory)
     //    SIM900PowerOn(); // Start the SIM900 board and let it connect to the gsm network
     SIM900.begin(19200);
-    SIM900.println("AT+CMGF=1");
+    SIM900.println("AT+CMGF=1"); // Select SMS text mode
     delay(200);
     //SIM900.println("ATE0"); // Disable command echo
     delay(50);
@@ -95,8 +96,6 @@ void loop()
             isComputerOn = false;
         }
     }
-
-
 
     // Only run this loop once every 10 seconds. This is for power saving idle mode.
     // TODO: Change delay to function with power saving mode.
@@ -138,7 +137,7 @@ void fillMessage()
         }
         if(serialInByte == '\n')
         {
-            //Skip Line Feed
+            // Skip Line Feed
         }
         else
         {
@@ -160,28 +159,28 @@ void handleMessage()
     if (msg.indexOf("+CMGR") >= 0)
     {
         // The contents of the SMS comes after the header which is ended by a <CR>
-        // so clear the header with clearMessage() and continue read the contents.
+        // so clear the header with clearMessage() below and continue read the contents.
         Serial.println("SMS Received!");
     }
     
     if (msg.indexOf("start") >= 0)
     {
-        Serial.println("Start the damn computer!");
-        SIM900.println("AT+CMGD=1,4"); // Clear the SMS storage on the SIM900
+        Serial.println("Start the computer!");
+        clearSMSStorage(); // Clear the SMS storage on the SIM900
         enableManualMode();
     }
     
     if (msg.indexOf("stop") >= 0)
     {
-        Serial.println("Stop the damn computer!");
-        SIM900.println("AT+CMGD=1,4"); // Clear the SMS storage on the SIM900
+        Serial.println("Stop the computer!");
+        clearSMSStorage(); // Clear the SMS storage on the SIM900
         disableManualMode();
     }
-    /*else
+    
+    if (msg.indexOf("reset") >= 0)
     {
-        Serial.println(msg);
-    }*/
-        
+        // TODO: Implement a mode that resets everything, to use if something goes wrong.    
+    }
         
     clearMessage();
 }
@@ -206,10 +205,9 @@ void parseTime()
     Serial.println(time.second);
 }
 
-// Parse SMS received from SIM900
-void parseSMS()
+void clearSMSStorage()
 {
-    
+    SIM900.println("AT+CMGD=1,4"); // Clear the SMS storage on the SIM900
 }
 
 // Enable manual mode
@@ -258,8 +256,8 @@ void sendComputerOnOffSignal()
 #endif
 }
 
-  void SIM900PowerOn()
-  {
+void SIM900PowerOn()
+{
     digitalWrite(PIN_SIM900_ON_OFF, HIGH);
     delay(1000);
 #ifdef DEBUG
